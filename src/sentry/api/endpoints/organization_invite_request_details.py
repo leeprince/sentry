@@ -3,7 +3,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from sentry import roles
-from sentry.api.bases.organization import OrganizationEndpoint, OrganizationPermission
+from sentry.api.bases.organization import OrganizationPermission
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.serializers import serialize
 from sentry.api.serializers.models.organization_member import OrganizationMemberWithTeamsSerializer
@@ -11,6 +11,7 @@ from sentry.exceptions import UnableToAcceptMemberInvitationException
 from sentry.models import OrganizationMember
 from sentry.utils.audit import get_api_key_for_audit_log
 
+from ..bases import OrganizationMemberEndpoint
 from .organization_member_details import get_allowed_roles
 from .organization_member_index import OrganizationMemberSerializer, save_team_assignments
 
@@ -39,20 +40,12 @@ class InviteRequestPermissions(OrganizationPermission):
     }
 
 
-class OrganizationInviteRequestDetailsEndpoint(OrganizationEndpoint):
+class OrganizationInviteRequestDetailsEndpoint(OrganizationMemberEndpoint):
     permission_classes = (InviteRequestPermissions,)
-
-    def _get_member(self, organization, member_id):
-        try:
-            return OrganizationMember.objects.get_member_invite_query(member_id).get(
-                organization=organization
-            )
-        except ValueError:
-            raise OrganizationMember.DoesNotExist()
 
     def get(self, request: Request, organization, member_id) -> Response:
         try:
-            member = self._get_member(organization, member_id)
+            member = self._get_member(request, organization, member_id)
         except OrganizationMember.DoesNotExist:
             raise ResourceDoesNotExist
 
@@ -78,7 +71,7 @@ class OrganizationInviteRequestDetailsEndpoint(OrganizationEndpoint):
         """
 
         try:
-            member = self._get_member(organization, member_id)
+            member = self._get_member(request, organization, member_id)
         except OrganizationMember.DoesNotExist:
             raise ResourceDoesNotExist
 
@@ -145,7 +138,7 @@ class OrganizationInviteRequestDetailsEndpoint(OrganizationEndpoint):
         """
 
         try:
-            member = self._get_member(organization, member_id)
+            member = self._get_member(request, organization, member_id)
         except OrganizationMember.DoesNotExist:
             raise ResourceDoesNotExist
 

@@ -6,7 +6,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from sentry import ratelimits, roles
-from sentry.api.bases.organization import OrganizationEndpoint, OrganizationPermission
+from sentry.api.bases import OrganizationMemberEndpoint
+from sentry.api.bases.organization import OrganizationPermission
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.serializers import (
     DetailedUserSerializer,
@@ -27,7 +28,6 @@ from sentry.models import (
     AuditLogEntryEvent,
     AuthIdentity,
     AuthProvider,
-    InviteStatus,
     OrganizationMember,
     OrganizationMemberTeam,
     Project,
@@ -96,26 +96,9 @@ class RelaxedMemberPermission(OrganizationPermission):
 
 
 @extend_schema(tags=["Organizations"])
-class OrganizationMemberDetailsEndpoint(OrganizationEndpoint):
+class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
     permission_classes = [RelaxedMemberPermission]
     public = {"GET", "DELETE"}
-
-    def _get_member(self, request: Request, organization, member_id):
-        if member_id == "me":
-            queryset = OrganizationMember.objects.filter(
-                organization=organization, user__id=request.user.id, user__is_active=True
-            )
-        else:
-            try:
-                queryset = OrganizationMember.objects.filter(
-                    Q(user__is_active=True) | Q(user__isnull=True),
-                    organization=organization,
-                    id=member_id,
-                    invite_status=InviteStatus.APPROVED.value,
-                )
-            except ValueError:
-                raise OrganizationMember.DoesNotExist()
-        return queryset.select_related("user").get()
 
     def _serialize_member(self, member, request, allowed_roles=None):
         context = serialize(member, serializer=OrganizationMemberWithTeamsSerializer())

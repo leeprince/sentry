@@ -1,11 +1,11 @@
 from typing import Union
 
-from django.db.models import Q
 from rest_framework import serializers, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from sentry.api.bases.organization import OrganizationEndpoint, OrganizationPermission
+from sentry.api.bases import OrganizationMemberEndpoint
+from sentry.api.bases.organization import OrganizationPermission
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.serializers import serialize
 from sentry.api.serializers.models.team import TeamWithProjectsSerializer
@@ -44,7 +44,7 @@ class RelaxedOrganizationPermission(OrganizationPermission):
     }
 
 
-class OrganizationMemberTeamDetailsEndpoint(OrganizationEndpoint):
+class OrganizationMemberTeamDetailsEndpoint(OrganizationMemberEndpoint):
     permission_classes = [RelaxedOrganizationPermission]
 
     def _can_create_team_member(self, request: Request, team: Team) -> bool:
@@ -90,21 +90,6 @@ class OrganizationMemberTeamDetailsEndpoint(OrganizationEndpoint):
         return request.access.has_scope("org:write") or (
             team in request.access.teams and request.access.has_team_scope(team, "team:write")
         )
-
-    def _get_member(
-        self, request: Request, organization: Organization, member_id: Union[int, str]
-    ) -> OrganizationMember:
-        if member_id == "me":
-            queryset = OrganizationMember.objects.filter(
-                organization=organization, user__id=request.user.id, user__is_active=True
-            )
-        else:
-            queryset = OrganizationMember.objects.filter(
-                Q(user__is_active=True) | Q(user__isnull=True),
-                organization=organization,
-                id=member_id,
-            )
-        return queryset.select_related("user").get()
 
     def _create_access_request(
         self, request: Request, team: Team, member: OrganizationMember
