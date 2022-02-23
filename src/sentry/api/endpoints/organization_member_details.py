@@ -117,22 +117,6 @@ class OrganizationMemberDetailsEndpoint(OrganizationEndpoint):
                 raise OrganizationMember.DoesNotExist()
         return queryset.select_related("user").get()
 
-    @staticmethod
-    def is_only_owner(member):
-        if member.role != roles.get_top_dog().id:
-            return False
-
-        queryset = OrganizationMember.objects.filter(
-            organization=member.organization_id,
-            role=roles.get_top_dog().id,
-            user__isnull=False,
-            user__is_active=True,
-        ).exclude(id=member.id)
-        if queryset.exists():
-            return False
-
-        return True
-
     def _serialize_member(self, member, request, allowed_roles=None):
         context = serialize(member, serializer=OrganizationMemberWithTeamsSerializer())
 
@@ -339,7 +323,7 @@ class OrganizationMemberDetailsEndpoint(OrganizationEndpoint):
         elif not request.access.has_scope("member:admin"):
             return Response({"detail": ERR_INSUFFICIENT_SCOPE}, status=400)
 
-        if self.is_only_owner(om):
+        if om.is_only_owner():
             return Response({"detail": ERR_ONLY_OWNER}, status=403)
 
         audit_data = om.get_audit_log_data()
