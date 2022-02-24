@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Iterable
-
 from django.db import transaction
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -37,8 +35,9 @@ from sentry.models import (
     TeamStatus,
     UserOption,
 )
-from sentry.roles.manager import Role
 from sentry.utils import metrics
+
+from . import get_allowed_roles
 
 ERR_NO_AUTH = "You cannot remove this member with an unauthenticated API request."
 ERR_INSUFFICIENT_ROLE = "You cannot remove a member who has more access than you."
@@ -55,29 +54,6 @@ MEMBER_ID_PARAM = OpenApiParameter(
     type=str,
     location="path",
 )
-
-
-def get_allowed_roles(
-    request: Request,
-    organization: Organization,
-    member: OrganizationMember | None = None,
-) -> tuple[bool, Iterable[Role]]:
-    can_admin = request.access.has_scope("member:admin")
-
-    allowed_roles = []
-    if can_admin and not is_active_superuser(request):
-        acting_member = member or OrganizationMember.objects.get(
-            user=request.user, organization=organization
-        )
-        if member and roles.get(acting_member.role).priority < roles.get(member.role).priority:
-            can_admin = False
-        else:
-            allowed_roles = acting_member.get_allowed_roles_to_invite()
-            can_admin = bool(allowed_roles)
-    elif is_active_superuser(request):
-        allowed_roles = roles.get_all()
-
-    return can_admin, allowed_roles
 
 
 class OrganizationMemberSerializer(serializers.Serializer):

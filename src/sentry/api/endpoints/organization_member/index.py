@@ -6,7 +6,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from sentry import features, ratelimits, roles
-from sentry.api.bases.organization import OrganizationEndpoint, OrganizationPermission
+from sentry.api.bases.organization import OrganizationPermission
+from sentry.api.bases.organizationmember import OrganizationMemberEndpoint
 from sentry.api.paginator import OffsetPaginator
 from sentry.api.serializers import serialize
 from sentry.api.serializers.models import organization_member as organization_member_serializers
@@ -18,7 +19,6 @@ from sentry.models import (
     ExternalActor,
     InviteStatus,
     OrganizationMember,
-    OrganizationMemberTeam,
     Team,
     TeamStatus,
 )
@@ -28,21 +28,9 @@ from sentry.signals import member_invited
 from sentry.utils import metrics
 from sentry.utils.retries import TimedRetryPolicy
 
-from .organization_member_details import get_allowed_roles
+from . import get_allowed_roles, save_team_assignments
 
 ERR_RATE_LIMITED = "You are being rate limited for too many invitations."
-
-
-@transaction.atomic
-def save_team_assignments(organization_member, teams):
-    # teams may be empty
-    OrganizationMemberTeam.objects.filter(organizationmember=organization_member).delete()
-    OrganizationMemberTeam.objects.bulk_create(
-        [
-            OrganizationMemberTeam(team=team, organizationmember=organization_member)
-            for team in teams
-        ]
-    )
 
 
 class MemberPermission(OrganizationPermission):
@@ -102,7 +90,7 @@ class OrganizationMemberSerializer(serializers.Serializer):
         return role
 
 
-class OrganizationMemberIndexEndpoint(OrganizationEndpoint):
+class OrganizationMemberIndexEndpoint(OrganizationMemberEndpoint):
     permission_classes = (MemberPermission,)
 
     def get(self, request: Request, organization) -> Response:
