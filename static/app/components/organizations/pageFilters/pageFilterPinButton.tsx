@@ -31,6 +31,7 @@ function PageFilterPinButton({filter, size, className}: Props) {
       size={size}
       borderless={size === 'zero'}
       icon={<IconPin size="xs" isSolid={pinned} />}
+      title={t('Remember this filter selection across pages')}
     />
   );
 }
