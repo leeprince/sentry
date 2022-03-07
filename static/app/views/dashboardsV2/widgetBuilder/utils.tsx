@@ -143,7 +143,7 @@ export function normalizeQueries({
     return {
       ...query,
       fields: aggregates.length ? aggregates : ['count()'],
-      columns: [],
+      columns: widgetBuilderNewDesign && query.columns ? query.columns : [],
       aggregates: aggregates.length ? aggregates : ['count()'],
     };
   });
