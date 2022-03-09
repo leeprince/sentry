@@ -67,6 +67,7 @@ function EnvironmentPageFilter({router, resetParamsOnChange = []}: Props) {
       customDropdownButton={customDropdownButton}
       customLoadingIndicator={customLoadingIndicator}
       detached
+      showPin
     />
   );
 }

@@ -151,6 +151,7 @@ export function ProjectPageFilter({router, specificProjectSlugs, ...otherProps}:
       customDropdownButton={customProjectDropdown}
       customLoadingIndicator={customLoadingIndicator}
       detached
+      showPin
       {...otherProps}
     />
   );
