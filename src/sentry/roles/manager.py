@@ -12,6 +12,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Type,
     TypeVar,
 )
 
@@ -22,10 +23,7 @@ def _normalize_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip())
 
 
-def _normalize_role_config(
-    desc: str = "", scopes: Iterable[str] = (), **kwargs: Mapping[str, Any]
-) -> Mapping[str, Any]:
-    return dict(desc=_normalize_whitespace(desc), scopes=frozenset(scopes), **kwargs)
+R = TypeVar("R", bound="Role")
 
 
 @dataclass(frozen=True, eq=True)
@@ -39,6 +37,19 @@ class Role(abc.ABC):
 
     def __post_init__(self) -> None:
         assert len(self.id) <= 32, "Role id must be no more than 32 characters"
+
+    @classmethod
+    def from_config(
+        cls: Type[R],
+        parent: "RoleManager",
+        priority: int,
+        desc: str = "",
+        scopes: Iterable[str] = (),
+        **kwargs: Any,
+    ) -> R:
+        return cls(
+            parent, priority, desc=_normalize_whitespace(desc), scopes=frozenset(scopes), **kwargs
+        )
 
     def __str__(self) -> str:
         return str(self.name)
@@ -70,9 +81,6 @@ class TeamRole(Role):
 
     def can_manage(self, other: "TeamRole") -> bool:
         return self.priority >= other.priority
-
-
-R = TypeVar("R", bound=Role)
 
 
 class RoleLevel(Generic[R]):
@@ -127,15 +135,14 @@ class RoleManager:
     ) -> None:
         self.organization_roles: RoleLevel[OrganizationRole] = RoleLevel(
             (
-                OrganizationRole(self, idx, **_normalize_role_config(**role_cfg))
+                OrganizationRole.from_config(self, idx, **role_cfg)
                 for idx, role_cfg in enumerate(org_config)
             ),
             default_org_role,
         )
 
         self.team_roles: RoleLevel[TeamRole] = RoleLevel(
-            TeamRole(self, idx, **_normalize_role_config(**role_cfg))
-            for idx, role_cfg in enumerate(team_config)
+            TeamRole.from_config(self, idx, **role_cfg) for idx, role_cfg in enumerate(team_config)
         )
 
         self._entry_role_map = self._make_entry_role_map(self.organization_roles, self.team_roles)
