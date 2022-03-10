@@ -38,7 +38,6 @@ CallbackFuture = namedtuple("CallbackFuture", ["callback", "kwargs", "key"])
 
 
 class RuleBase(abc.ABC):
-    label = None
     form_cls = None
 
     logger = logging.getLogger("sentry.rules")
@@ -48,6 +47,10 @@ class RuleBase(abc.ABC):
         self.data = data or {}
         self.had_data = data is not None
         self.rule = rule
+
+    @property
+    def label(self) -> str:
+        raise NotImplementedError
 
     def is_enabled(self):
         return True
