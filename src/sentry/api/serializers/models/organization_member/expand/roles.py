@@ -6,7 +6,7 @@ from sentry import roles
 from sentry.api.serializers import serialize
 from sentry.api.serializers.models.role import RoleSerializer
 from sentry.api.serializers.models.user import DetailedUserSerializer
-from sentry.models import OrganizationMember
+from sentry.models import OrganizationMember, User
 from sentry.roles.manager import Role
 
 from .. import OrganizationMemberWithTeamsSerializer
@@ -23,8 +23,12 @@ class OrganizationMemberWithRolesSerializer(OrganizationMemberWithTeamsSerialize
         self.can_admin = can_admin
         self.allowed_roles = allowed_roles
 
-    def serialize(
-        self, obj: OrganizationMember, attrs: Mapping[str, Any], user: Any, **kwargs: Any
+    def serialize(  # type: ignore
+        self,
+        obj: OrganizationMember,
+        attrs: Mapping[str, Any],
+        user: User,
+        **kwargs: Any,
     ) -> Mapping[str, Any]:
         context = {**super().serialize(obj, attrs, user, **kwargs)}
 
