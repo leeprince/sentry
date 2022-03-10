@@ -5,6 +5,7 @@ from rest_framework import serializers, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from sentry import features
 from sentry.api.bases.organization import OrganizationEndpoint, OrganizationPermission
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.serializers import serialize
@@ -18,12 +19,15 @@ from sentry.models import (
     OrganizationMemberTeam,
     Team,
 )
+from sentry.roles import team_roles
+from sentry.roles.manager import TeamRole
 
 ERR_INSUFFICIENT_ROLE = "You do not have permission to edit that user's membership."
 
 
 class OrganizationMemberTeamSerializer(serializers.Serializer):
     isActive = serializers.BooleanField()
+    role = serializers.CharField(allow_null=True, allow_blank=True)
 
 
 class RelaxedOrganizationPermission(OrganizationPermission):
@@ -87,9 +91,25 @@ class OrganizationMemberTeamDetailsEndpoint(OrganizationEndpoint):
         return False
 
     def _can_admin_team(self, request: Request, team: Team) -> bool:
-        return request.access.has_scope("org:write") or (
-            team in request.access.teams and request.access.has_team_scope(team, "team:write")
-        )
+        if request.access.has_scope("org:write"):
+            return True
+        if not request.access.has_team_membership(team):
+            return False
+        return request.access.has_team_scope(team, "team:write")
+
+    def _can_set_team_role(self, request: Request, team: Team, new_role: TeamRole) -> bool:
+        if not self._can_admin_team(request, team):
+            return False
+
+        org_role = request.access.get_organization_role()
+        if org_role and org_role.can_manage_team_role(new_role):
+            return True
+
+        team_role = request.access.get_team_role(team)
+        if team_role and team_role.can_manage(new_role):
+            return True
+
+        return False
 
     def _get_member(
         self, request: Request, organization: Organization, member_id: Union[int, str]
@@ -171,6 +191,48 @@ class OrganizationMemberTeamDetailsEndpoint(OrganizationEndpoint):
         )
 
         return Response(serialize(team, request.user, TeamWithProjectsSerializer()), status=201)
+
+    def put(
+        self,
+        request: Request,
+        organization: Organization,
+        member_id: Union[int, str],
+        team_slug: str,
+    ) -> Response:
+        try:
+            team = Team.objects.get(organization=organization, slug=team_slug)
+        except Team.DoesNotExist:
+            raise ResourceDoesNotExist
+
+        try:
+            member = self._get_member(request, organization, member_id)
+        except OrganizationMember.DoesNotExist:
+            raise ResourceDoesNotExist
+
+        try:
+            omt = OrganizationMemberTeam.objects.get(team=team, organizationmember=member)
+        except OrganizationMemberTeam.DoesNotExist:
+            raise ResourceDoesNotExist
+
+        serializer = OrganizationMemberTeamSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(status=400)
+        result = serializer.validated_data
+
+        if "role" in result:
+            if features.has("organizations:team-roles", organization):
+                new_role_id = result["role"]
+                try:
+                    new_role = team_roles.get(new_role_id)
+                except KeyError:
+                    return Response(status=400)
+
+                if not self._can_set_team_role(request, team, new_role):
+                    return Response({"detail": ERR_INSUFFICIENT_ROLE}, status=400)
+
+                omt.update_team_role(new_role)
+
+        return Response(serialize(team, request.user, TeamWithProjectsSerializer()), status=200)
 
     def delete(
         self,
