@@ -2,13 +2,30 @@ import abc
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, Generic, Iterable, Mapping, Optional, Sequence, Tuple, TypeVar
+from typing import (
+    Any,
+    Dict,
+    FrozenSet,
+    Generic,
+    Iterable,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+)
 
 from sentry.utils import warnings
 
 
 def _normalize_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip())
+
+
+def _normalize_role_config(
+    desc: str = "", scopes: Iterable[str] = (), **kwargs: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    return dict(desc=_normalize_whitespace(desc), scopes=frozenset(scopes), **kwargs)
 
 
 @dataclass(frozen=True, eq=True)
@@ -22,19 +39,6 @@ class Role(abc.ABC):
 
     def __post_init__(self) -> None:
         assert len(self.id) <= 32, "Role id must be no more than 32 characters"
-
-    @classmethod
-    def from_config(
-        cls,
-        parent: "RoleManager",
-        priority: int,
-        desc: str = "",
-        scopes: Iterable[str] = (),
-        **kwargs,
-    ) -> "Role":
-        return cls(
-            parent, priority, desc=_normalize_whitespace(desc), scopes=frozenset(scopes), **kwargs
-        )
 
     def __str__(self) -> str:
         return str(self.name)
@@ -123,14 +127,15 @@ class RoleManager:
     ) -> None:
         self.organization_roles: RoleLevel[OrganizationRole] = RoleLevel(
             (
-                OrganizationRole.from_config(self, idx, **role_cfg)
+                OrganizationRole(self, idx, **_normalize_role_config(**role_cfg))
                 for idx, role_cfg in enumerate(org_config)
             ),
             default_org_role,
         )
 
         self.team_roles: RoleLevel[TeamRole] = RoleLevel(
-            TeamRole.from_config(self, idx, **role_cfg) for idx, role_cfg in enumerate(team_config)
+            TeamRole(self, idx, **_normalize_role_config(**role_cfg))
+            for idx, role_cfg in enumerate(team_config)
         )
 
         self._entry_role_map = self._make_entry_role_map(self.organization_roles, self.team_roles)
@@ -165,7 +170,7 @@ class RoleManager:
         )
 
     def __iter__(self) -> Iterable[OrganizationRole]:
-        yield from self.organization_roles
+        yield from self.organization_roles.get_all()
 
     def can_manage(self, role: str, other: str) -> bool:
         return self.organization_roles.can_manage(role, other)
