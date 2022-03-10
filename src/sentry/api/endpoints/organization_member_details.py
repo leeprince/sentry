@@ -12,7 +12,6 @@ from rest_framework.response import Response
 from sentry import ratelimits, roles
 from sentry.api.bases import OrganizationMemberEndpoint
 from sentry.api.bases.organization import OrganizationPermission
-from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.serializers import serialize
 from sentry.api.serializers.models.organization_member import OrganizationMemberWithRolesSerializer, \
     OrganizationMemberWithTeamsSerializer
@@ -121,17 +120,17 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
             404: RESPONSE_NOTFOUND,
         },
     )
-    def get(self, request: Request, organization, member_id) -> Response:
+    def get(
+        self,
+        request: Request,
+        organization: Organization,
+        member: OrganizationMember,
+    ) -> Response:
         """
-        Retrive an organization member's details.
+        Retrieve an organization member's details.
 
         Will return a pending invite as long as it's already approved.
         """
-
-        try:
-            member = self._get_member(request, organization, member_id)
-        except OrganizationMember.DoesNotExist:
-            raise ResourceDoesNotExist
 
         return Response(
             serialize(
@@ -157,12 +156,12 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
     #         404: RESPONSE_NOTFOUND,
     #     },
     # )
-    def put(self, request: Request, organization, member_id) -> Response:
-        try:
-            om = self._get_member(request, organization, member_id)
-        except OrganizationMember.DoesNotExist:
-            raise ResourceDoesNotExist
-
+    def put(
+        self,
+        request: Request,
+        organization: Organization,
+        member: OrganizationMember,
+    ) -> Response:
         serializer = OrganizationMemberSerializer(data=request.data, partial=True)
 
         if not serializer.is_valid():
@@ -181,10 +180,10 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
         # XXX(dcramer): if/when this expands beyond reinvite we need to check
         # access level
         if result.get("reinvite"):
-            if om.is_pending:
+            if member.is_pending:
                 if ratelimits.for_organization_member_invite(
                     organization=organization,
-                    email=om.email,
+                    email=member.email,
                     user=request.user,
                     auth=request.auth,
                 ):
@@ -198,15 +197,15 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
 
                 if result.get("regenerate"):
                     if request.access.has_scope("member:admin"):
-                        om.regenerate_token()
-                        om.save()
+                        member.regenerate_token()
+                        member.save()
                     else:
                         return Response({"detail": ERR_INSUFFICIENT_SCOPE}, status=400)
-                if om.token_expired:
+                if member.token_expired:
                     return Response({"detail": ERR_EXPIRED}, status=400)
-                om.send_invite_email()
-            elif auth_provider and not getattr(om.flags, "sso:linked"):
-                om.send_sso_link_email(request.user, auth_provider)
+                member.send_invite_email()
+            elif auth_provider and not getattr(member.flags, "sso:linked"):
+                member.send_sso_link_email(request.user, auth_provider)
             else:
                 # TODO(dcramer): proper error message
                 return Response({"detail": ERR_UNINVITABLE}, status=400)
@@ -225,9 +224,9 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
 
             with transaction.atomic():
                 # teams may be empty
-                OrganizationMemberTeam.objects.filter(organizationmember=om).delete()
+                OrganizationMemberTeam.objects.filter(organizationmember=member).delete()
                 OrganizationMemberTeam.objects.bulk_create(
-                    [OrganizationMemberTeam(team=team, organizationmember=om) for team in teams]
+                    [OrganizationMemberTeam(team=team, organizationmember=member) for team in teams]
                 )
 
         if result.get("role"):
@@ -241,29 +240,29 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
                 )
 
             # A user cannot demote a superior
-            if om.role not in allowed_role_ids:
+            if member.role not in allowed_role_ids:
                 return Response(
                     {"role": "You do not have permission to assign a role to the given user."},
                     status=403,
                 )
 
-            if om.user == request.user and (result["role"] != om.role):
+            if member.user == request.user and (result["role"] != member.role):
                 return Response({"detail": "You cannot make changes to your own role."}, status=400)
 
-            om.update(role=result["role"])
+            member.update(role=result["role"])
 
         self.create_audit_entry(
             request=request,
             organization=organization,
-            target_object=om.id,
-            target_user=om.user,
+            target_object=member.id,
+            target_user=member.user,
             event=AuditLogEntryEvent.MEMBER_EDIT,
-            data=om.get_audit_log_data(),
+            data=member.get_audit_log_data(),
         )
 
         return Response(
             serialize(
-                om,
+                member,
                 request.user,
                 OrganizationMemberWithRolesSerializer(
                     can_admin=can_admin,
@@ -285,14 +284,15 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
             404: RESPONSE_NOTFOUND,
         },
     )
-    def delete(self, request: Request, organization, member_id) -> Response:
+    def delete(
+        self,
+        request: Request,
+        organization: Organization,
+        member: OrganizationMember,
+    ) -> Response:
         """
         Remove an organization member.
         """
-        try:
-            om = self._get_member(request, organization, member_id)
-        except OrganizationMember.DoesNotExist:
-            raise ResourceDoesNotExist
 
         if request.user.is_authenticated and not is_active_superuser(request):
             try:
@@ -302,24 +302,24 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
             except OrganizationMember.DoesNotExist:
                 return Response({"detail": ERR_INSUFFICIENT_ROLE}, status=400)
             else:
-                if acting_member != om:
+                if acting_member != member:
                     if not request.access.has_scope("member:admin"):
                         return Response({"detail": ERR_INSUFFICIENT_SCOPE}, status=400)
-                    elif not roles.can_manage(acting_member.role, om.role):
+                    elif not roles.can_manage(acting_member.role, member.role):
                         return Response({"detail": ERR_INSUFFICIENT_ROLE}, status=400)
 
         # TODO(dcramer): do we even need this check?
         elif not request.access.has_scope("member:admin"):
             return Response({"detail": ERR_INSUFFICIENT_SCOPE}, status=400)
 
-        if om.is_only_owner():
+        if member.is_only_owner():
             return Response({"detail": ERR_ONLY_OWNER}, status=403)
 
-        audit_data = om.get_audit_log_data()
+        audit_data = member.get_audit_log_data()
 
         with transaction.atomic():
             AuthIdentity.objects.filter(
-                user=om.user, auth_provider__organization=organization
+                user=member.user, auth_provider__organization=organization
             ).delete()
 
             # Delete instances of `UserOption` that are scoped to the projects within the
@@ -328,18 +328,18 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
                 "id", flat=True
             )
             uo_list = UserOption.objects.filter(
-                user=om.user, project_id__in=proj_list, key="mail:email"
+                user=member.user, project_id__in=proj_list, key="mail:email"
             )
             for uo in uo_list:
                 uo.delete()
 
-            om.delete()
+            member.delete()
 
         self.create_audit_entry(
             request=request,
             organization=organization,
-            target_object=om.id,
-            target_user=om.user,
+            target_object=member.id,
+            target_user=member.user,
             event=AuditLogEntryEvent.MEMBER_REMOVE,
             data=audit_data,
         )
