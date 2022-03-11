@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Iterable
 
 from django.db import transaction
-from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
 from rest_framework.request import Request
@@ -13,8 +12,10 @@ from sentry import ratelimits, roles
 from sentry.api.bases import OrganizationMemberEndpoint
 from sentry.api.bases.organization import OrganizationPermission
 from sentry.api.serializers import serialize
-from sentry.api.serializers.models.organization_member import OrganizationMemberWithRolesSerializer, \
-    OrganizationMemberWithTeamsSerializer
+from sentry.api.serializers.models.organization_member import (
+    OrganizationMemberWithRolesSerializer,
+    OrganizationMemberWithTeamsSerializer,
+)
 from sentry.api.serializers.rest_framework import ListField
 from sentry.apidocs.constants import (
     RESPONSE_FORBIDDEN,
