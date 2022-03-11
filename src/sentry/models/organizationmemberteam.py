@@ -41,8 +41,8 @@ class OrganizationMemberTeam(BaseModel):
     def get_team_role(self) -> TeamRole:
         """Get this member's team-level role.
 
-        This is guaranteed to resolve to a non-null role object. If the role field is
-        null, resolve the member's organization-level role to its team entry role.
+        If the role field is null, resolve to the team entry role given by this
+        member's organization role.
         """
         entry_role = roles.get_entry_role(self.organizationmember.role)
         if self.role:
@@ -54,11 +54,11 @@ class OrganizationMemberTeam(BaseModel):
     def update_team_role(self, role: TeamRole) -> None:
         """Modify this member's team-level role.
 
-        Write a non-null value only if the team-level role is higher than the team
-        entry role for this member's organization-level role. If the entry role is
-        equal or greater, write null instead. We do this because the entry role would
-        override a lesser team role, making it invisible in the UI and causing
-        surprising behavior in case the user's orgg-level role is lowered.
+        If the member has an organization role that gives an equal or higher entry
+        role, write null to this object's role field. We do this because a persistent
+        team role, if it is overshadowed by the entry role, would be effectively
+        invisible in the UI, and would be surprising if it were left behind after the
+        user's org-level role is lowered.
         """
         entry_role = roles.get_entry_role(self.organizationmember.role)
         if role.priority > entry_role.priority:
