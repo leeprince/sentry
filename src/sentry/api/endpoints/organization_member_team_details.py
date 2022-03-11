@@ -1,5 +1,3 @@
-from typing import Union
-
 from rest_framework import serializers, status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -109,7 +107,7 @@ class OrganizationMemberTeamDetailsEndpoint(OrganizationMemberEndpoint):
         self,
         request: Request,
         organization: Organization,
-        member_id: Union[int, str],
+        member: OrganizationMember,
         team_slug: str,
     ) -> Response:
         """
@@ -121,11 +119,6 @@ class OrganizationMemberTeamDetailsEndpoint(OrganizationMemberEndpoint):
         If the user is already a member of the team, this will simply return
         a 204.
         """
-        try:
-            member = self._get_member(request, organization, member_id)
-        except OrganizationMember.DoesNotExist:
-            raise ResourceDoesNotExist
-
         if not request.user.is_authenticated:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
@@ -134,17 +127,14 @@ class OrganizationMemberTeamDetailsEndpoint(OrganizationMemberEndpoint):
         except Team.DoesNotExist:
             raise ResourceDoesNotExist
 
-        try:
-            omt = OrganizationMemberTeam.objects.get(team=team, organizationmember=member)
-        except OrganizationMemberTeam.DoesNotExist:
-            if self._can_create_team_member(request, team):
-                omt = OrganizationMemberTeam.objects.create(team=team, organizationmember=member)
-            else:
-                self._create_access_request(request, team, member)
-                return Response(status=202)
-
-        else:
+        if OrganizationMemberTeam.objects.filter(team=team, organizationmember=member).exists():
             return Response(status=204)
+
+        if not self._can_create_team_member(request, team):
+            self._create_access_request(request, team, member)
+            return Response(status=202)
+
+        omt = OrganizationMemberTeam.objects.create(team=team, organizationmember=member)
 
         self.create_audit_entry(
             request=request,
@@ -161,17 +151,12 @@ class OrganizationMemberTeamDetailsEndpoint(OrganizationMemberEndpoint):
         self,
         request: Request,
         organization: Organization,
-        member_id: Union[int, str],
+        member: OrganizationMember,
         team_slug: str,
     ) -> Response:
         """
         Leave or remove a member from a team
         """
-        try:
-            member = self._get_member(request, organization, member_id)
-        except OrganizationMember.DoesNotExist:
-            raise ResourceDoesNotExist
-
         try:
             team = Team.objects.get(organization=organization, slug=team_slug)
         except Team.DoesNotExist:

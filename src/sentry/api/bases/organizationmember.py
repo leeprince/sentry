@@ -42,7 +42,7 @@ class OrganizationMemberEndpoint(OrganizationEndpoint):
         *args: Any,
         **kwargs: Any,
     ) -> tuple[Any, Any]:
-        args, kwargs = super().convert_args(request, organization_slug)
+        args, kwargs = super().convert_args(request, organization_slug, **kwargs)
 
         serializer = MemberSerializer(data={"id": member_id})
         if serializer.is_valid():
