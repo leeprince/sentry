@@ -18,7 +18,7 @@ import * as Layout from 'sentry/components/layouts/thirds';
 import {Panel, PanelBody} from 'sentry/components/panels';
 import Placeholder from 'sentry/components/placeholder';
 import TimeSince from 'sentry/components/timeSince';
-import {IconDiamond, IconInfo} from 'sentry/icons';
+import {IconDiamond} from 'sentry/icons';
 import {t, tct} from 'sentry/locale';
 import overflowEllipsis from 'sentry/styles/overflowEllipsis';
 import space from 'sentry/styles/space';
@@ -334,7 +334,7 @@ export default class DetailsBody extends React.Component<Props> {
         {selectedIncident &&
           selectedIncident.alertRule.status === AlertRuleStatus.SNAPSHOT && (
             <StyledLayoutBody>
-              <StyledAlert type="warning" icon={<IconInfo size="md" />}>
+              <StyledAlert type="warning" showIcon>
                 {t(
                   'Alert Rule settings have been updated since this alert was triggered.'
                 )}

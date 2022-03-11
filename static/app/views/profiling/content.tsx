@@ -11,7 +11,6 @@ import {normalizeDateTimeParams} from 'sentry/components/organizations/pageFilte
 import PageHeading from 'sentry/components/pageHeading';
 import Pagination from 'sentry/components/pagination';
 import SentryDocumentTitle from 'sentry/components/sentryDocumentTitle';
-import {IconFlag} from 'sentry/icons';
 import {t} from 'sentry/locale';
 import {PageContent} from 'sentry/styles/organization';
 import {Organization, PageFilters} from 'sentry/types';
@@ -89,7 +88,7 @@ function ProfilingContent({location, selection}: ProfilingContentProps) {
             <Layout.Body>
               <Layout.Main fullWidth>
                 {requestState === 'errored' && (
-                  <Alert type="error" icon={<IconFlag size="md" />}>
+                  <Alert type="error" showIcon>
                     {t('Unable to load profiles')}
                   </Alert>
                 )}
