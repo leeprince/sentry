@@ -20,6 +20,7 @@ class LevelEventForm(forms.Form):
 
 
 class LevelCondition(EventCondition):
+    id = "sentry.rules.conditions.level.LevelCondition"
     form_cls = LevelEventForm
     label = "The event's level is {match} {level}"
     form_fields = {

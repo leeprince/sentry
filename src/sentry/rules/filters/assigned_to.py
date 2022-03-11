@@ -5,6 +5,7 @@ from sentry.utils.cache import cache
 
 
 class AssignedToFilter(EventFilter):
+    id = "sentry.rules.filters.assigned_to.AssignedToFilter"
     form_cls = AssignedToForm
     label = "The issue is assigned to {targetType}"
     prompt = "The issue is assigned to {no one/team/member}"

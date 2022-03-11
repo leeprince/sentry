@@ -8,6 +8,7 @@ class IssueOccurrencesForm(forms.Form):
 
 
 class IssueOccurrencesFilter(EventFilter):
+    id = "sentry.rules.filters.issue_occurrences.IssueOccurrencesFilter"
     form_cls = IssueOccurrencesForm
     form_fields = {
         "value": {"type": "number", "placeholder": 10},

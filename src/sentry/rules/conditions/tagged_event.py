@@ -25,6 +25,7 @@ class TaggedEventForm(forms.Form):
 
 
 class TaggedEventCondition(EventCondition):
+    id = "sentry.rules.conditions.tagged_event.TaggedEventCondition"
     form_cls = TaggedEventForm
     label = "The event's tags match {key} {match} {value}"
 

@@ -40,6 +40,7 @@ class AgeComparisonForm(forms.Form):
 
 
 class AgeComparisonFilter(EventFilter):
+    id = "sentry.rules.filters.age_comparison.AgeComparisonFilter"
     form_cls = AgeComparisonForm
     form_fields = {
         "comparison_type": {"type": "choice", "choices": age_comparison_choices},
