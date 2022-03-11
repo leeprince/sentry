@@ -63,6 +63,18 @@ class IntegrationEventAction(EventAction):
     Intermediate abstract class to help DRY some event actions code.
     """
 
+    @property
+    def provider(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def integration_key(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def ticket_type(self) -> str:
+        raise NotImplementedError
+
     def is_enabled(self) -> bool:
         enabled: bool = self.get_integrations().exists()
         return enabled
