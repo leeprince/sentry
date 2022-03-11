@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import logging
 import re
 from datetime import timedelta
@@ -80,10 +81,9 @@ class EventFrequencyForm(forms.Form):
         return cleaned_data
 
 
-class BaseEventFrequencyCondition(EventCondition):
+class BaseEventFrequencyCondition(EventCondition, abc.ABC):
     intervals = standard_intervals
     form_cls = EventFrequencyForm
-    label = NotImplemented  # subclass must implement
 
     def __init__(self, *args, **kwargs):
         self.tsdb = kwargs.pop("tsdb", tsdb)
