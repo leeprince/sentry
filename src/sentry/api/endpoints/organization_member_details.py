@@ -132,14 +132,12 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
 
         Will return a pending invite as long as it's already approved.
         """
-
+        can_admin, allowed_roles = get_allowed_roles(request, organization, member)
         return Response(
             serialize(
                 member,
                 request.user,
-                OrganizationMemberWithRolesSerializer(
-                    *get_allowed_roles(request, organization, member)
-                ),
+                OrganizationMemberWithRolesSerializer(can_admin, allowed_roles),
             )
         )
 
@@ -174,8 +172,7 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
         except AuthProvider.DoesNotExist:
             auth_provider = None
 
-        can_admin = False
-        allowed_roles = None
+        can_admin, allowed_roles = get_allowed_roles(request, organization)
         result = serializer.validated_data
 
         # XXX(dcramer): if/when this expands beyond reinvite we need to check
@@ -231,7 +228,6 @@ class OrganizationMemberDetailsEndpoint(OrganizationMemberEndpoint):
                 )
 
         if result.get("role"):
-            can_admin, allowed_roles = get_allowed_roles(request, organization)
             allowed_role_ids = {r.id for r in allowed_roles}
 
             # A user cannot promote others above themselves

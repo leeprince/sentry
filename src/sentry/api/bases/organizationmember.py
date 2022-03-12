@@ -8,7 +8,7 @@ from rest_framework.request import Request
 
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.db.models.fields.bounded import BoundedAutoField
-from sentry.models import Organization, OrganizationMember
+from sentry.models import InviteStatus, Organization, OrganizationMember
 
 from .organization import OrganizationEndpoint
 
@@ -42,7 +42,7 @@ class OrganizationMemberEndpoint(OrganizationEndpoint):
         *args: Any,
         **kwargs: Any,
     ) -> tuple[Any, Any]:
-        args, kwargs = super().convert_args(request, organization_slug, **kwargs)
+        args, kwargs = super().convert_args(request, organization_slug, *args, **kwargs)
 
         serializer = MemberSerializer(data={"id": member_id})
         if serializer.is_valid():
@@ -56,18 +56,21 @@ class OrganizationMemberEndpoint(OrganizationEndpoint):
         else:
             raise ResourceDoesNotExist
 
-    @staticmethod
     def _get_member(
-        request: Request, organization: Organization, member_id: int | str
+        self, request: Request, organization: Organization, member_id: int | str
     ) -> OrganizationMember:
         if member_id == "me":
             queryset = OrganizationMember.objects.filter(
                 organization=organization, user__id=request.user.id, user__is_active=True
             )
         else:
-            queryset = OrganizationMember.objects.filter(
-                Q(user__is_active=True) | Q(user__isnull=True),
-                organization=organization,
-                id=member_id,
-            )
+            try:
+                queryset = OrganizationMember.objects.filter(
+                    Q(user__is_active=True) | Q(user__isnull=True),
+                    organization=organization,
+                    id=member_id,
+                    invite_status=InviteStatus.APPROVED.value,
+                )
+            except ValueError:
+                raise OrganizationMember.DoesNotExist()
         return queryset.select_related("user").get()
