@@ -42,7 +42,7 @@ comparison_types = {
 }
 
 
-class EventFrequencyForm(forms.Form):
+class EventFrequencyForm(forms.Form):  # type: ignore
     intervals = standard_intervals
     interval = forms.ChoiceField(
         choices=[
