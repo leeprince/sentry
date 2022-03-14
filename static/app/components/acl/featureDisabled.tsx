@@ -147,7 +147,7 @@ class FeatureDisabled extends React.Component<Props, State> {
     const AlertComponent = typeof alert === 'boolean' ? Alert : alert;
 
     return (
-      <AlertComponent type="warning">
+      <AlertComponent type="warning" showIcon>
         <AlertWrapper>{this.renderFeatureDisabled()}</AlertWrapper>
       </AlertComponent>
     );
